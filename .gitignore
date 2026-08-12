@@ -1,0 +1,11 @@
+node_modules/
+build/
+dist/
+release/
+__pycache__/
+*.exe
+*.zip
+*.rar
+*.log
+usage_stats.json
+.zcode/

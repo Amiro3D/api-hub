@@ -1,0 +1,28 @@
+{
+    "default_provider": "nvidia",
+    "providers": {
+        "nvidia": {
+            "label": "NVIDIA NIM",
+            "base_url": "https://integrate.api.nvidia.com",
+            "keys": []
+        },
+        "opencode": {
+            "label": "OpenCode Zen",
+            "base_url": "https://opencode.ai/zen",
+            "keys": []
+        },
+        "kilo": {
+            "label": "Kilo Code",
+            "base_url": "https://api.kilo.ai/api/gateway",
+            "keys": []
+        }
+    },
+    "host": "127.0.0.1",
+    "port": 59714,
+    "timeout": 300,
+    "proxy_enabled": true,
+    "proxy_type": "socks5",
+    "proxy_host": "127.0.0.1",
+    "proxy_port": 10808,
+    "anonymous_enabled": false
+}
