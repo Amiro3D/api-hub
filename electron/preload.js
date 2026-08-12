@@ -25,6 +25,11 @@ contextBridge.exposeInMainWorld("nvidiaHub", {
   getLogs: () => ipcRenderer.invoke("hub:logs"),
   clearLogs: () => ipcRenderer.invoke("hub:clearLogs"),
 
+  // GitHub Proxy
+  startGithubProxy: () => ipcRenderer.invoke("githubProxy:start"),
+  stopGithubProxy: () => ipcRenderer.invoke("githubProxy:stop"),
+  getGithubProxyStatus: () => ipcRenderer.invoke("githubProxy:status"),
+
   // Shell
   openExternal: (url) => ipcRenderer.invoke("shell:openExternal", url),
   openConfigFolder: () => ipcRenderer.invoke("shell:openConfig"),

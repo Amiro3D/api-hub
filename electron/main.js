@@ -1,7 +1,7 @@
 const { app, BrowserWindow, ipcMain, shell, nativeTheme } = require("electron");
 const path = require("path");
 const fs = require("fs");
-const { spawn, spawnSync } = require("child_process");
+const { spawn, spawnSync, exec } = require("child_process");
 const http = require("http");
 
 const ROOT = path.join(__dirname, "..");
@@ -690,6 +690,14 @@ function registerIpc() {
           ? payload.anonymous_enabled
           : current.anonymous_enabled
       ),
+      github_proxy_enabled: Boolean(
+        payload.github_proxy_enabled !== undefined
+          ? payload.github_proxy_enabled
+          : current.github_proxy_enabled
+      ),
+      github_repo: payload.github_repo ?? current.github_repo ?? "Amiro3D/api-hub",
+      github_proxy_url: current.github_proxy_url || "",
+      github_proxy_status: current.github_proxy_status || "stopped",
     };
 
     // Merge providers payload
@@ -779,6 +787,71 @@ function registerIpc() {
   ipcMain.handle("hub:clearLogs", () => {
     logBuffer = [];
     return true;
+  });
+
+  ipcMain.handle("githubProxy:status", async () => {
+    let config;
+    try {
+      config = loadConfig();
+    } catch (err) {
+      return { ok: false, error: err.message, status: "stopped", tunnel_url: "" };
+    }
+    const res = await hubHttpJson(config, { method: "GET", path: "/github-proxy/status" });
+    if (res.ok && res.data) {
+      return { ok: true, ...res.data };
+    }
+    const repo = config.github_repo || "Amiro3D/api-hub";
+    return new Promise((resolve) => {
+      exec(`gh issue view 1 --repo "${repo}" --json title`, { timeout: 5000 }, (err, stdout) => {
+        let tunnel_url = "";
+        let status = "stopped";
+        if (!err && stdout) {
+          try {
+            const data = JSON.parse(stdout);
+            const title = (data.title || "").trim();
+            if (title.startsWith("https://") && title.includes("trycloudflare.com")) {
+              tunnel_url = title;
+              status = "running";
+            }
+          } catch (_) {}
+        }
+        resolve({ ok: true, status, tunnel_url, repo, enabled: Boolean(config.github_proxy_enabled) });
+      });
+    });
+  });
+
+  ipcMain.handle("githubProxy:start", async () => {
+    let config;
+    try {
+      config = loadConfig();
+    } catch (err) {
+      return { ok: false, message: err.message };
+    }
+    const repo = config.github_repo || "Amiro3D/api-hub";
+    return new Promise((resolve) => {
+      exec(`gh workflow run proxy.yml --repo "${repo}"`, { timeout: 10000 }, (err, stdout, stderr) => {
+        if (err) {
+          resolve({ ok: false, message: stderr || stdout || err.message });
+        } else {
+          resolve({ ok: true, message: "GitHub Action runner started" });
+        }
+      });
+    });
+  });
+
+  ipcMain.handle("githubProxy:stop", async () => {
+    let config;
+    try {
+      config = loadConfig();
+    } catch (err) {
+      return { ok: false, message: err.message };
+    }
+    const repo = config.github_repo || "Amiro3D/api-hub";
+    return new Promise((resolve) => {
+      exec(`gh issue edit 1 --repo "${repo}" --title "STOPPED" --body "Stopped by user"`, { timeout: 8000 }, () => {
+        resolve({ ok: true, message: "GitHub Action runner stopped" });
+      });
+    });
   });
 
   ipcMain.handle("shell:openExternal", (_e, url) => shell.openExternal(url));

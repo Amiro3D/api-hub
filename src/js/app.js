@@ -556,15 +556,20 @@ function initForms() {
     startGhBtn.addEventListener("click", async () => {
       try {
         toast("Triggering GitHub Action runner…", "info");
-        const port = state.config?.port || 59714;
-        const host = state.config?.host || "127.0.0.1";
-        const res = await fetch(`http://${host}:${port}/github-proxy/start`, { method: "POST" });
-        const data = await res.json();
-        if (res.ok) {
+        let data;
+        if (api?.startGithubProxy) {
+          data = await api.startGithubProxy();
+        } else {
+          const port = state.config?.port || 59714;
+          const host = state.config?.host === "0.0.0.0" ? "127.0.0.1" : (state.config?.host || "127.0.0.1");
+          const res = await fetch(`http://${host}:${port}/github-proxy/start`, { method: "POST" });
+          data = await res.json();
+        }
+        if (data && (data.ok || data.status)) {
           toast("Runner starting! Cloudflare Tunnel initializing…", "success");
           refreshGithubProxyStatus();
         } else {
-          toast(data.message || "Failed to start runner", "error");
+          toast(data?.message || "Failed to start runner", "error");
         }
       } catch (err) {
         toast(err.message || "Failed to start runner", "error");
@@ -576,15 +581,20 @@ function initForms() {
   if (stopGhBtn) {
     stopGhBtn.addEventListener("click", async () => {
       try {
-        const port = state.config?.port || 59714;
-        const host = state.config?.host || "127.0.0.1";
-        const res = await fetch(`http://${host}:${port}/github-proxy/stop`, { method: "POST" });
-        const data = await res.json();
-        if (res.ok) {
+        let data;
+        if (api?.stopGithubProxy) {
+          data = await api.stopGithubProxy();
+        } else {
+          const port = state.config?.port || 59714;
+          const host = state.config?.host === "0.0.0.0" ? "127.0.0.1" : (state.config?.host || "127.0.0.1");
+          const res = await fetch(`http://${host}:${port}/github-proxy/stop`, { method: "POST" });
+          data = await res.json();
+        }
+        if (data && (data.ok || data.status)) {
           toast("Runner stopped", "info");
           refreshGithubProxyStatus();
         } else {
-          toast(data.message || "Failed to stop runner", "error");
+          toast(data?.message || "Failed to stop runner", "error");
         }
       } catch (err) {
         toast(err.message || "Failed to stop runner", "error");
@@ -597,11 +607,17 @@ function initForms() {
 
 async function refreshGithubProxyStatus() {
   try {
-    const port = state.config?.port || 59714;
-    const host = state.config?.host || "127.0.0.1";
-    const res = await fetch(`http://${host}:${port}/github-proxy/status`);
-    if (!res.ok) return;
-    const data = await res.json();
+    let data;
+    if (api?.getGithubProxyStatus) {
+      data = await api.getGithubProxyStatus();
+    } else {
+      const port = state.config?.port || 59714;
+      const host = state.config?.host === "0.0.0.0" ? "127.0.0.1" : (state.config?.host || "127.0.0.1");
+      const res = await fetch(`http://${host}:${port}/github-proxy/status`);
+      if (!res.ok) return;
+      data = await res.json();
+    }
+    if (!data) return;
 
     const badge = $("#ghProxyStatusBadge");
     const urlCode = $("#ghProxyTunnelUrl");
