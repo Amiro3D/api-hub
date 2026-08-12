@@ -3,9 +3,7 @@ name: GitHub Action Proxy
 on:
   workflow_dispatch:
 
-permissions:
-  contents: read
-  variables: write
+permissions: write-all
 
 jobs:
   run-proxy:
