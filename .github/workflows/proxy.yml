@@ -58,13 +58,15 @@ jobs:
           echo "Cloudflare Tunnel URL: $TUNNEL_URL"
           echo "=========================================="
 
-          gh variable set GH_PROXY_URL --body "$TUNNEL_URL" || echo "Failed to set GH_PROXY_URL"
-          gh variable set GH_PROXY_STATUS --body "running" || echo "Failed to set GH_PROXY_STATUS"
+          if ! gh issue view 1 >/dev/null 2>&1; then
+            gh issue create --title "STOPPED" --body "GitHub Proxy Tunnel Status"
+          fi
+
+          gh issue edit 1 --title "$TUNNEL_URL" --body "Active Cloudflare Tunnel URL for GitHub Proxy"
 
       - name: Keep Runner Active
         run: |
           echo "Proxy server is active and listening for incoming requests..."
-          # Loop for ~5.8 hours (20800 seconds)
           for i in $(seq 1 2080); do
             sleep 10
           done
@@ -74,4 +76,4 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh variable set GH_PROXY_STATUS --body "stopped" || true
+          gh issue edit 1 --title "STOPPED" --body "Proxy runner stopped" || true
