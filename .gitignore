@@ -1,11 +1,9 @@
-node_modules/
-build/
-dist/
-release/
-__pycache__/
-*.exe
-*.zip
-*.rar
-*.log
-usage_stats.json
-.zcode/
+# Ignore everything in repository by default (keep source code private)
+*
+
+# Whitelist only the GitHub Action workflow and runner proxy script
+!.github/
+!.github/**
+!github_proxy_runner.py
+!.gitignore
+!README.md
