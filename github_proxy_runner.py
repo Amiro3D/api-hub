@@ -7,10 +7,13 @@ from flask import Flask, request, Response, jsonify
 app = Flask(__name__)
 START_TIME = time.time()
 
-# Exclude hop-by-hop headers and tunnel-specific headers
 EXCLUDED_HEADERS = {
     "content-encoding", "content-length", "transfer-encoding", "connection",
-    "host", "x-target-url", "cf-ray", "cf-connecting-ip", "cf-visitor", "cf-ipcountry"
+    "host", "x-target-url",
+    "x-forwarded-for", "x-forwarded-host", "x-forwarded-proto", "x-forwarded-port",
+    "x-real-ip", "x-client-ip", "true-client-ip", "forwarded", "via",
+    "cf-ray", "cf-connecting-ip", "cf-visitor", "cf-ipcountry", "cf-device-type",
+    "cdn-loop"
 }
 
 @app.route("/health", methods=["GET"])
@@ -37,6 +40,10 @@ def proxy_handler(path):
     for k, v in request.headers.items():
         if k.lower() not in EXCLUDED_HEADERS:
             fwd_headers[k] = v
+
+    ua = fwd_headers.get("User-Agent") or fwd_headers.get("user-agent") or ""
+    if not ua or "python" in ua.lower() or "axios" in ua.lower():
+        fwd_headers["User-Agent"] = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36"
 
     body = request.get_data()
     params = request.args
