@@ -31,6 +31,8 @@ def proxy_handler(path):
     if not target_url:
         return jsonify({"error": "Missing X-Target-Url header"}), 400
 
+    print(f"[runner] Proxying {request.method} -> {target_url}", flush=True)
+
     fwd_headers = {}
     for k, v in request.headers.items():
         if k.lower() not in EXCLUDED_HEADERS:
