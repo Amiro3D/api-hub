@@ -797,6 +797,93 @@ def _load_curl_cffi():
         return None
 
 
+import subprocess
+
+
+def get_github_proxy_tunnel(cfg=None):
+    """Fetch active GitHub Proxy tunnel URL from GitHub Issue #1."""
+    if cfg is None:
+        cfg = get_config()
+    repo = cfg.get("github_repo") or "Amiro3D/api-hub"
+    cached_url = cfg.get("github_proxy_url", "")
+    try:
+        cmd = ["gh", "issue", "view", "1", "--repo", repo, "--json", "title"]
+        res = subprocess.run(cmd, capture_output=True, text=True, timeout=5)
+        if res.returncode == 0 and res.stdout:
+            data = json.loads(res.stdout)
+            title = (data.get("title") or "").strip()
+            if title.startswith("https://") and "trycloudflare.com" in title:
+                return title
+    except Exception as exc:
+        print(f"[github-proxy] Error fetching tunnel URL: {exc}", flush=True)
+    return cached_url
+
+
+def get_github_proxy_status(cfg=None):
+    """Query current status of GitHub Action Proxy runner."""
+    if cfg is None:
+        cfg = get_config()
+    repo = cfg.get("github_repo") or "Amiro3D/api-hub"
+    enabled = bool(cfg.get("github_proxy_enabled"))
+    tunnel_url = get_github_proxy_tunnel(cfg)
+
+    status = "stopped"
+    if tunnel_url and tunnel_url.startswith("https://"):
+        status = "running"
+    else:
+        try:
+            cmd = ["gh", "run", "list", "--repo", repo, "--workflow", "proxy.yml", "--limit", "1", "--json", "status"]
+            res = subprocess.run(cmd, capture_output=True, text=True, timeout=5)
+            if res.returncode == 0 and res.stdout:
+                runs = json.loads(res.stdout)
+                if runs and runs[0].get("status") in ("in_progress", "queued", "requested"):
+                    status = "starting"
+        except Exception:
+            pass
+
+    return {
+        "enabled": enabled,
+        "status": status,
+        "tunnel_url": tunnel_url if status == "running" else "",
+        "repo": repo,
+    }
+
+
+def start_github_proxy_workflow(cfg=None):
+    """Trigger GitHub Actions proxy workflow using gh CLI."""
+    if cfg is None:
+        cfg = get_config()
+    repo = cfg.get("github_repo") or "Amiro3D/api-hub"
+    try:
+        cmd = ["gh", "workflow", "run", "proxy.yml", "--repo", repo]
+        res = subprocess.run(cmd, capture_output=True, text=True, timeout=8)
+        if res.returncode == 0:
+            return True, "GitHub Action proxy workflow triggered successfully"
+        return False, res.stderr or res.stdout or "Failed to trigger workflow"
+    except Exception as exc:
+        return False, str(exc)
+
+
+def stop_github_proxy_workflow(cfg=None):
+    """Cancel active GitHub Actions proxy workflow and set status to stopped."""
+    if cfg is None:
+        cfg = get_config()
+    repo = cfg.get("github_repo") or "Amiro3D/api-hub"
+    try:
+        cmd_list = ["gh", "run", "list", "--repo", repo, "--workflow", "proxy.yml", "--json", "databaseId,status"]
+        res = subprocess.run(cmd_list, capture_output=True, text=True, timeout=5)
+        if res.returncode == 0 and res.stdout:
+            runs = json.loads(res.stdout)
+            for r in runs:
+                if r.get("status") in ("in_progress", "queued", "requested"):
+                    run_id = str(r.get("databaseId"))
+                    subprocess.run(["gh", "run", "cancel", run_id, "--repo", repo], capture_output=True, timeout=5)
+        subprocess.run(["gh", "issue", "edit", "1", "--repo", repo, "--title", "STOPPED", "--body", "Proxy stopped by user"], capture_output=True, timeout=5)
+        return True, "GitHub Action proxy workflow stopped"
+    except Exception as exc:
+        return False, str(exc)
+
+
 def normalize_config(raw):
     """Support legacy flat keys + multi-provider shape."""
     cfg = dict(raw or {})
@@ -809,6 +896,10 @@ def normalize_config(raw):
     proxy_host = cfg.get("proxy_host", "127.0.0.1")
     proxy_port = int(cfg.get("proxy_port", 1080))
     anonymous_enabled = bool(cfg.get("anonymous_enabled", False))
+    github_proxy_enabled = bool(cfg.get("github_proxy_enabled", False))
+    github_repo = str(cfg.get("github_repo") or "Amiro3D/api-hub").strip()
+    github_proxy_url = str(cfg.get("github_proxy_url") or "").strip()
+    github_proxy_status = str(cfg.get("github_proxy_status") or "stopped").strip()
 
     providers = {}
     raw_providers = cfg.get("providers")
@@ -867,6 +958,10 @@ def normalize_config(raw):
         "proxy_host": proxy_host,
         "proxy_port": proxy_port,
         "anonymous_enabled": anonymous_enabled,
+        "github_proxy_enabled": github_proxy_enabled,
+        "github_repo": github_repo,
+        "github_proxy_url": github_proxy_url,
+        "github_proxy_status": github_proxy_status,
     }
 
 
@@ -1276,6 +1371,13 @@ def do_upstream_request(cfg, method, url, headers, body, params, anonymous, iden
     proxy = _proxy_url(cfg)
     timeout = cfg["timeout"]
 
+    gh_proxy_active = bool(cfg.get("github_proxy_enabled"))
+    if gh_proxy_active:
+        gh_tunnel = get_github_proxy_tunnel(cfg)
+        if gh_tunnel:
+            headers["X-Target-Url"] = url
+            url = gh_tunnel
+
     if anonymous:
         # Tiny random jitter so request cadence is not a stable device signature
         try:
@@ -1674,6 +1776,27 @@ def usage_reset():
     if scope not in ("session", "all"):
         scope = "session"
     return reset_usage(scope)
+
+
+@app.route("/github-proxy/status", methods=["GET"])
+def github_proxy_status_route():
+    cfg = get_config()
+    st = get_github_proxy_status(cfg)
+    return jsonify(st)
+
+
+@app.route("/github-proxy/start", methods=["POST"])
+def github_proxy_start_route():
+    cfg = get_config()
+    ok, msg = start_github_proxy_workflow(cfg)
+    return jsonify({"ok": ok, "message": msg}), (200 if ok else 500)
+
+
+@app.route("/github-proxy/stop", methods=["POST"])
+def github_proxy_stop_route():
+    cfg = get_config()
+    ok, msg = stop_github_proxy_workflow(cfg)
+    return jsonify({"ok": ok, "message": msg}), (200 if ok else 500)
 
 
 @app.route("/", methods=["GET"])

@@ -488,44 +488,86 @@
           <div class="view-header">
             <div>
               <h1>Proxy</h1>
-              <p class="view-sub">Route provider traffic through SOCKS or HTTP proxy</p>
+              <p class="view-sub">Route provider traffic through SOCKS/HTTP proxy or GitHub Action runner</p>
             </div>
             <div class="header-actions">
               <button type="button" class="btn btn-primary" id="btnSaveProxy">Save Proxy</button>
             </div>
           </div>
 
-          <article class="panel proxy-panel">
-            <div class="toggle-row">
-              <div>
-                <h2>Enable proxy</h2>
-                <p class="view-sub">When enabled, all upstream requests use the configured proxy</p>
+          <div class="form-stack">
+            <article class="panel proxy-panel">
+              <div class="panel-head">
+                <h2>Standard Proxy (SOCKS5 / HTTP)</h2>
               </div>
-              <label class="switch">
-                <input type="checkbox" id="cfgProxyEnabled" />
-                <span class="switch-track"><span class="switch-thumb"></span></span>
-              </label>
-            </div>
+              <div class="toggle-row">
+                <div>
+                  <h2>Enable standard proxy</h2>
+                  <p class="view-sub">When enabled, upstream or GitHub requests are routed through this local proxy</p>
+                </div>
+                <label class="switch">
+                  <input type="checkbox" id="cfgProxyEnabled" />
+                  <span class="switch-track"><span class="switch-thumb"></span></span>
+                </label>
+              </div>
 
-            <div class="form-grid three" id="proxyFields">
-              <label class="field">
-                <span class="field-label">Type</span>
-                <select id="cfgProxyType">
-                  <option value="socks5">SOCKS5</option>
-                  <option value="http">HTTP</option>
-                  <option value="https">HTTPS</option>
-                </select>
-              </label>
-              <label class="field">
-                <span class="field-label">Host</span>
-                <input type="text" id="cfgProxyHost" spellcheck="false" />
-              </label>
-              <label class="field">
-                <span class="field-label">Port</span>
-                <input type="number" id="cfgProxyPort" min="1" max="65535" />
-              </label>
-            </div>
-          </article>
+              <div class="form-grid three" id="proxyFields">
+                <label class="field">
+                  <span class="field-label">Type</span>
+                  <select id="cfgProxyType">
+                    <option value="socks5">SOCKS5</option>
+                    <option value="http">HTTP</option>
+                    <option value="https">HTTPS</option>
+                  </select>
+                </label>
+                <label class="field">
+                  <span class="field-label">Host</span>
+                  <input type="text" id="cfgProxyHost" spellcheck="false" />
+                </label>
+                <label class="field">
+                  <span class="field-label">Port</span>
+                  <input type="number" id="cfgProxyPort" min="1" max="65535" />
+                </label>
+              </div>
+            </article>
+
+            <article class="panel proxy-panel">
+              <div class="panel-head">
+                <div class="panel-title-row">
+                  <h2>GitHub Action Proxy</h2>
+                  <span class="u-badge" id="ghProxyStatusBadge">Stopped</span>
+                </div>
+              </div>
+              <div class="toggle-row">
+                <div>
+                  <h2>Enable GitHub Action proxy</h2>
+                  <p class="view-sub">Proxies requests through a 6-hour GitHub Action runner via Cloudflare Tunnel</p>
+                </div>
+                <label class="switch">
+                  <input type="checkbox" id="cfgGithubProxyEnabled" />
+                  <span class="switch-track"><span class="switch-thumb"></span></span>
+                </label>
+              </div>
+
+              <div class="form-stack mt-4">
+                <label class="field">
+                  <span class="field-label">GitHub Repository</span>
+                  <input type="text" id="cfgGithubRepo" spellcheck="false" placeholder="Amiro3D/api-hub" />
+                  <span class="field-hint">Repository containing the .github/workflows/proxy.yml workflow</span>
+                </label>
+
+                <div class="tunnel-info-box">
+                  <span class="field-label">Active Tunnel Endpoint</span>
+                  <code class="tunnel-url-code" id="ghProxyTunnelUrl">None (Runner Stopped)</code>
+                </div>
+
+                <div class="action-buttons-row">
+                  <button type="button" class="btn btn-secondary" id="btnStartGhProxy">Start Runner</button>
+                  <button type="button" class="btn btn-ghost" id="btnStopGhProxy">Stop Runner</button>
+                </div>
+              </div>
+            </article>
+          </div>
         </section>
 
         <!-- LOGS -->

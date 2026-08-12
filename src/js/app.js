@@ -473,6 +473,11 @@ async function loadConfig() {
   $("#cfgProxyType").value = config.proxy_type || "socks5";
   $("#cfgProxyHost").value = config.proxy_host || "127.0.0.1";
   $("#cfgProxyPort").value = config.proxy_port ?? 1080;
+  const ghAnon = $("#cfgGithubProxyEnabled");
+  if (ghAnon) ghAnon.checked = Boolean(config.github_proxy_enabled);
+  const ghRepoEl = $("#cfgGithubRepo");
+  if (ghRepoEl) ghRepoEl.value = config.github_repo || "Amiro3D/api-hub";
+  refreshGithubProxyStatus();
   updateProxyFieldsState();
   updateAnonymousUi();
 
@@ -536,14 +541,89 @@ function initForms() {
         proxy_type: $("#cfgProxyType").value,
         proxy_host: $("#cfgProxyHost").value.trim(),
         proxy_port: Number($("#cfgProxyPort").value),
+        github_proxy_enabled: $("#cfgGithubProxyEnabled")?.checked,
+        github_repo: $("#cfgGithubRepo")?.value.trim(),
       });
-      toast("Proxy settings saved — restart hub to apply", "success");
+      toast("Proxy settings saved", "success");
+      refreshGithubProxyStatus();
     } catch (err) {
       toast(err.message || "Save failed", "error");
     }
   });
 
+  const startGhBtn = $("#btnStartGhProxy");
+  if (startGhBtn) {
+    startGhBtn.addEventListener("click", async () => {
+      try {
+        toast("Triggering GitHub Action runner…", "info");
+        const port = state.config?.port || 59714;
+        const host = state.config?.host || "127.0.0.1";
+        const res = await fetch(`http://${host}:${port}/github-proxy/start`, { method: "POST" });
+        const data = await res.json();
+        if (res.ok) {
+          toast("Runner starting! Cloudflare Tunnel initializing…", "success");
+          refreshGithubProxyStatus();
+        } else {
+          toast(data.message || "Failed to start runner", "error");
+        }
+      } catch (err) {
+        toast(err.message || "Failed to start runner", "error");
+      }
+    });
+  }
+
+  const stopGhBtn = $("#btnStopGhProxy");
+  if (stopGhBtn) {
+    stopGhBtn.addEventListener("click", async () => {
+      try {
+        const port = state.config?.port || 59714;
+        const host = state.config?.host || "127.0.0.1";
+        const res = await fetch(`http://${host}:${port}/github-proxy/stop`, { method: "POST" });
+        const data = await res.json();
+        if (res.ok) {
+          toast("Runner stopped", "info");
+          refreshGithubProxyStatus();
+        } else {
+          toast(data.message || "Failed to stop runner", "error");
+        }
+      } catch (err) {
+        toast(err.message || "Failed to stop runner", "error");
+      }
+    });
+  }
+
   $("#btnOpenConfig").addEventListener("click", () => api.openConfigFolder());
+}
+
+async function refreshGithubProxyStatus() {
+  try {
+    const port = state.config?.port || 59714;
+    const host = state.config?.host || "127.0.0.1";
+    const res = await fetch(`http://${host}:${port}/github-proxy/status`);
+    if (!res.ok) return;
+    const data = await res.json();
+
+    const badge = $("#ghProxyStatusBadge");
+    const urlCode = $("#ghProxyTunnelUrl");
+
+    const status = data.status || "stopped";
+    if (badge) {
+      badge.textContent = status.toUpperCase();
+      badge.className = `u-badge ${status}`;
+    }
+
+    if (urlCode) {
+      if (status === "running" && data.tunnel_url) {
+        urlCode.textContent = data.tunnel_url;
+      } else if (status === "starting") {
+        urlCode.textContent = "Connecting to Cloudflare Tunnel…";
+      } else {
+        urlCode.textContent = "None (Runner Stopped)";
+      }
+    }
+  } catch (err) {
+    // Ignore offline backend errors
+  }
 }
 
 async function savePartialConfig(partial = {}) {
@@ -594,6 +674,11 @@ async function savePartialConfig(partial = {}) {
     proxy_type: partial.proxy_type ?? $("#cfgProxyType").value,
     proxy_host: partial.proxy_host ?? $("#cfgProxyHost").value.trim(),
     proxy_port: Number(partial.proxy_port ?? $("#cfgProxyPort").value),
+    github_proxy_enabled:
+      partial.github_proxy_enabled !== undefined
+        ? partial.github_proxy_enabled
+        : $("#cfgGithubProxyEnabled")?.checked ?? false,
+    github_repo: partial.github_repo ?? $("#cfgGithubRepo")?.value.trim() ?? "Amiro3D/api-hub",
     providers,
   };
 

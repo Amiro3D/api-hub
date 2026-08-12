@@ -24,5 +24,9 @@
     "proxy_type": "socks5",
     "proxy_host": "127.0.0.1",
     "proxy_port": 10808,
-    "anonymous_enabled": false
+    "anonymous_enabled": false,
+    "github_proxy_enabled": false,
+    "github_repo": "Amiro3D/api-hub",
+    "github_proxy_url": "",
+    "github_proxy_status": "stopped"
 }
