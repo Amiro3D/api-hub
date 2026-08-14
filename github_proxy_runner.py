@@ -22,7 +22,7 @@ START_TIME = time.time()
 # Excluded headers that leak IP or break proxy framing
 EXCLUDED_HEADERS = {
     "content-encoding", "content-length", "transfer-encoding", "connection",
-    "host", "x-target-url",
+    "host", "x-target-url", "x-opencode-pacing",
     "x-forwarded-for", "x-forwarded-host", "x-forwarded-proto", "x-forwarded-port",
     "x-real-ip", "x-client-ip", "true-client-ip", "forwarded", "via",
     "cf-ray", "cf-connecting-ip", "cf-visitor", "cf-ipcountry", "cf-device-type",
@@ -86,9 +86,11 @@ def proxy_handler(path):
         return jsonify({"error": "Missing X-Target-Url header"}), 400
 
     is_opencode = "opencode.ai" in target_url
+    pacing_hdr = request.headers.get("X-Opencode-Pacing") or request.headers.get("x-opencode-pacing") or "1"
+    pacing_enabled = pacing_hdr not in ("0", "false", "False")
 
-    # Natural pacing for OpenCode: mimic app's natural spacing to prevent 429
-    if is_opencode:
+    # Natural pacing for OpenCode: mimic app's natural spacing to prevent 429 (if enabled)
+    if is_opencode and pacing_enabled:
         with _opencode_runner_lock:
             now = time.time()
             elapsed = now - _last_opencode_runner_time
