@@ -59,10 +59,15 @@ jobs:
           echo "=========================================="
 
           if ! gh issue view 1 >/dev/null 2>&1; then
-            gh issue create --title "STOPPED" --body "GitHub Proxy Tunnel Status"
+            gh issue create --title "STOPPED" --body "GitHub Proxy Tunnel Status" || true
           fi
 
-          gh issue edit 1 --title "$TUNNEL_URL" --body "Active Cloudflare Tunnel URL for GitHub Proxy"
+          for attempt in {1..5}; do
+            if gh issue edit 1 --title "$TUNNEL_URL" --body "Active Cloudflare Tunnel URL for GitHub Proxy"; then
+              break
+            fi
+            sleep 3
+          done || true
 
       - name: Keep Runner Active
         run: |
