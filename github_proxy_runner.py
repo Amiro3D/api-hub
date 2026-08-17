@@ -37,6 +37,13 @@ OPENCODE_APP_HEADERS = {
     "User-Agent": "opencode/1.0",
 }
 
+# Qwen app headers
+QWEN_APP_HEADERS = {
+    "Origin": "https://chat.qwen.ai",
+    "Referer": "https://chat.qwen.ai/",
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36 AliDesktop(QWENCHAT/1.0.3)",
+}
+
 # OpenCode pacing lock: at least 2.0s between requests to prevent burst 429
 _opencode_runner_lock = threading.Lock()
 _last_opencode_runner_time = 0.0
@@ -54,7 +61,7 @@ try:
             max_keepalive_connections=20,
             keepalive_expiry=60.0,
         ),
-        headers={"User-Agent": "opencode/1.0"},
+        headers={"User-Agent": "Mozilla/5.0"},
     )
     print("[runner] HTTP/2 client initialized with connection pooling.", flush=True)
 except Exception as e:
@@ -86,6 +93,7 @@ def proxy_handler(path):
         return jsonify({"error": "Missing X-Target-Url header"}), 400
 
     is_opencode = "opencode.ai" in target_url
+    is_qwen = "qwen.ai" in target_url
     pacing_hdr = request.headers.get("X-Opencode-Pacing") or request.headers.get("x-opencode-pacing") or "1"
     pacing_enabled = pacing_hdr not in ("0", "false", "False")
 
@@ -98,7 +106,7 @@ def proxy_handler(path):
                 time.sleep(MIN_OPENCODE_GAP - elapsed)
             _last_opencode_runner_time = time.time()
 
-    print(f"[runner] Proxying {request.method} -> {target_url} (is_opencode={is_opencode})", flush=True)
+    print(f"[runner] Proxying {request.method} -> {target_url} (is_opencode={is_opencode}, is_qwen={is_qwen})", flush=True)
 
     fwd_headers = {}
     for k, v in request.headers.items():
@@ -111,6 +119,10 @@ def proxy_handler(path):
             fwd_headers[hk] = hv
         if not fwd_headers.get("Authorization"):
             fwd_headers["Authorization"] = "Bearer public"
+    elif is_qwen:
+        # Inject Qwen headers
+        for hk, hv in QWEN_APP_HEADERS.items():
+            fwd_headers[hk] = hv
     else:
         ua = fwd_headers.get("User-Agent") or fwd_headers.get("user-agent") or ""
         if not ua or "python" in ua.lower() or "axios" in ua.lower():
